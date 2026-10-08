@@ -1,0 +1,22 @@
+
+Tristan Bot
+br = 0
+fl = 1
+fr = 2
+bl = 3
+
+
+Junior Bot
+ctrl hub
+bl = 0
+fr = 1
+br = 2
+fl = 3
+
+fl = REVERSE
+bl = REVERSE
+fr = FORWARD
+br = FORWARD
+
+expan hub
+intake = 0

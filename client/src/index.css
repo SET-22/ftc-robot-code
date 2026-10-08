@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* roboto-300 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 300;
+  src: local(''), url('assets/fonts/roboto-v20-latin-300.woff2') format('woff2');
+}
+
+/* roboto-regular - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  src: local(''),
+    url('assets/fonts/roboto-v20-latin-regular.woff2') format('woff2');
+}
+
+/* roboto-500 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  src: local(''), url('assets/fonts/roboto-v20-latin-500.woff2') format('woff2');
+}
+
+/* roboto-700 - latin */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  src: local(''), url('assets/fonts/roboto-v20-latin-700.woff2') format('woff2');
+}
+
+table {
+  margin: 0;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+table table {
+  margin-left: 24px;
+}
+
+td {
+  padding: 4px;
+}
+
+input {
+  font-size: inherit;
+}
+
+.option-header {
+  display: flex;
+}
+
+.icon-btn {
+  @apply flex items-center justify-center rounded-md;
+  @apply border border-transparent transition-colors hover:border-gray-400 focus-visible:border-primary-500;
+  @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-opacity-30;
+}
+
+.error {
+  @apply font-bold text-red-500;
+}
+
+.warning {
+  @apply font-bold text-yellow-500;
+}
+
+.grab-handle {
+  cursor: grab;
+}
+
+.flex-center {
+  @apply flex items-center justify-center;
+}
+
+select {
+  background-position: right 0.15rem center;
+}
