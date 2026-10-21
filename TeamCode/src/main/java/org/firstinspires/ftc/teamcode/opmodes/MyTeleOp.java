@@ -14,7 +14,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
             private DcMotor bl;
             private DcMotor fr;
             private DcMotor br;
-            private final double mult = 0.0;
+            private final double mult = 0.9;
             private DcMotor intake;
 
             @Override
@@ -37,7 +37,6 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
                 telemetry.addLine("ready");
                 telemetry.update();  // telemetry is a field you inherit; send data to the Driver Station
 
-
                 waitForStart();   // waits for PLAY
 
                 while (opModeIsActive()) {
@@ -55,7 +54,6 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
                     br.setPower(brPower * mult);
                     fl.setPower(flPower * mult);
                     bl.setPower(blPower * mult);
-                    telemetry.update();
 
                     if (gamepad1.a) {
                         intake.setPower(1.0);      // intake
@@ -64,7 +62,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
                     } else {
                         intake.setPower(0);        // stop when neither is held
                     }
-
+                    telemetry.update();
                 }
             }
         }
