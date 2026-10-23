@@ -21,34 +21,48 @@ public class MyTeleOp extends LinearOpMode {
     // ---------- Mechanisms ----------
     private DcMotor transfer;   // hold A
     private DcMotor intake;     // hold X
-    private Servo gate;         // press B to toggle open/closed
-    private DcMotor kickwheel;  // runs while B is held
+    private Servo gate;         // press B to request open; only opens when shooter is at speed
+    private DcMotor kickwheel;  // runs while B is held AND shooter is at speed
 
     private static final double GATE_CLOSED = 0.0; // tune
     private static final double GATE_OPEN = 0.5;   // tune
-    private boolean gateOpen = false;
+    private boolean gateRequested = false;  // toggled by B
     private boolean bWasPressed = false;
 
-    // ---------- Shooter: holds targetRPM while right bumper is held ----------
-    // Self-correcting: the integral term keeps adjusting power until the
-    // measured RPM matches the target, so kF doesn't need to be exact.
+    // ---------- Shooter: PIDF holds targetRPM while right bumper is held ----------
     private DcMotorEx shooter;
-    private double targetRPM = 3100.0;   // D-pad up/down changes it by 100
+    private double targetRPM = 3100.0;   // D-pad up/down changes it by 50
     private boolean dpadUpWas = false;
     private boolean dpadDownWas = false;
 
     private static final double TICKS_PER_REV = 28.0;
 
-    private double kF = 1.0 / 7500.0;  // only the starting guess for power
-    private double kP = 0.00005;       // quick push proportional to error
-    private double kI = 0.0004;        // power added per (RPM of error * second)
-    // If RPM oscillates around the target: lower kI (and kP).
-    // If it takes too long to reach the target: raise kI.
+    // output = kP*error + kI*integral(error) + kD*(rate of change) + kF*target
+    //
+    // Tune in this order: kF, then kP, then kD, then kI.
+    //   kF: baseline power for the target speed. About 1 / (RPM at full power).
+    //       From your earlier test, full power is roughly 7500 RPM, so 1/7500.
+    //       If it settles ABOVE the target with kP = kI = 0, lower kF. Below, raise it.
+    //   kP: raise until it reaches the target fast; lower if it oscillates.
+    //   kD: raise (slowly) if it overshoots on spin-up; lower if it gets jittery.
+    //   kI: raise only if it settles a little off the target and stays there.
+    private double kP = 0.0002;
+    private double kI = 0.0002;
+    private double kD = 0.00001;
+    private double kF = 1.0/ 7500.0;
 
-    private double controllerPower = 0.0;
-    private boolean wasShooting = false;
-    private double filteredRPM = 0.0;  // smoothed RPM reading
+    // Largest power the I term is allowed to add (anti-windup)
+    private static final double MAX_I_POWER = 0.3;
+
+    private double integral = 0.0;
+    private double previousRPM = 0.0;
+    private double filteredRPM = 0.0;    // smoothed RPM reading
+
+    // Ready when within 100 RPM of the target; stays ready until the error
+    // grows past 150 (prevents the gate from flickering).
     private static final double AT_SPEED_TOLERANCE = 100.0;
+    private static final double LOSE_SPEED_TOLERANCE = 150.0;
+    private boolean ready = false;
 
     @Override
     public void runOpMode() {
@@ -74,7 +88,7 @@ public class MyTeleOp extends LinearOpMode {
         kickwheel.setDirection(DcMotorSimple.Direction.REVERSE); // flip if it spins the wrong way
 
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER); // our PID sets the power
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         // If Actual RPM reads negative when it spins the right way:
         // shooter.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -106,58 +120,91 @@ public class MyTeleOp extends LinearOpMode {
             bl.setPower(blPower * mult);
             br.setPower(brPower * mult);
 
-            // ---------- Mechanisms ----------
+            // ---------- Intake / transfer ----------
             transfer.setPower(gamepad1.a ? 1 : 0);
             intake.setPower(gamepad1.x ? 1 : 0);
 
-            // Gate toggles on each B press and STAYS there
-            if (gamepad1.b && !bWasPressed) gateOpen = !gateOpen;
-            bWasPressed = gamepad1.b;
-            gate.setPosition(gateOpen ? GATE_OPEN : GATE_CLOSED);
-
-            kickwheel.setPower(gamepad1.b ? 1 : 0);
-
-            // ---------- Shooter ----------
-            // D-pad up/down changes the target by 100 RPM per press
+            // ---------- Shooter: PIDF ----------
+            // D-pad up/down changes the target by 50 RPM per press
             if (gamepad1.dpad_up && !dpadUpWas) targetRPM += 50;
             if (gamepad1.dpad_down && !dpadDownWas) targetRPM = Math.max(0, targetRPM - 50);
             dpadUpWas = gamepad1.dpad_up;
             dpadDownWas = gamepad1.dpad_down;
 
+            // ONE timestamp per loop
             long now = System.nanoTime();
             double dt = (now - previousTime) / 1e9;
             previousTime = now;
 
-            // Read RPM and smooth it a bit (encoder velocity is noisy)
+            // Measure RPM and smooth it a bit (encoder velocity is noisy)
             double rawRPM = shooter.getVelocity() / TICKS_PER_REV * 60.0;
             filteredRPM = 0.7 * filteredRPM + 0.3 * rawRPM;
 
+            boolean shooting = gamepad1.right_bumper;
             double error = targetRPM - filteredRPM;
             double output = 0;
 
-            if (gamepad1.right_bumper && dt > 0) {
-                if (!wasShooting) {
-                    controllerPower = kF * targetRPM; // start near the right power
-                }
-                // Integral: keeps nudging power until the RPM matches the target
-                controllerPower += kI * error * dt;
-                controllerPower = Math.max(0.0, Math.min(1.0, controllerPower));
+            if (shooting && dt > 0) {
+                // P: reacts to the current error
+                double pTerm = kP * error;
 
-                output = controllerPower + kP * error;
-                output = Math.max(0.0, Math.min(1.0, output));
+                // D: reacts to how fast the RPM is changing. Uses the measurement
+                // (not the error) so changing the target doesn't cause a sudden kick.
+                double dTerm = -kD * (filteredRPM - previousRPM) / dt;
+
+                // F: baseline power for the target speed
+                double fTerm = kF * targetRPM;
+
+                // I: accumulates error over time. Stops accumulating while the
+                // output is maxed out (anti-windup) and is capped to MAX_I_POWER.
+                double unsaturated = pTerm + kI * integral + dTerm + fTerm;
+                boolean saturatedHigh = unsaturated > 1.0 && error > 0;
+                boolean saturatedLow = unsaturated < 0.0 && error < 0;
+                if (!saturatedHigh && !saturatedLow) {
+                    integral += error * dt;
+                    if (kI != 0) {
+                        double maxIntegral = MAX_I_POWER / Math.abs(kI);
+                        integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
+                    }
+                }
+                double iTerm = kI * integral;
+
+                output = pTerm + iTerm + dTerm + fTerm;
+                output = Math.max(0.0, Math.min(1.0, output)); // motor power range
                 shooter.setPower(output);
             } else {
+                // Not shooting: stop and reset the controller memory
                 shooter.setPower(0);
+                integral = 0;
             }
-            wasShooting = gamepad1.right_bumper;
+            previousRPM = filteredRPM;
+
+            // ---------- Ready check: is the flywheel fast enough? ----------
+            if (!shooting) {
+                ready = false;
+            } else if (!ready && Math.abs(error) < AT_SPEED_TOLERANCE) {
+                ready = true;
+            } else if (ready && Math.abs(error) > LOSE_SPEED_TOLERANCE) {
+                ready = false;
+            }
+
+            // ---------- Gate + kickwheel: only when the flywheel is ready ----------
+            // B toggles the request. The gate only actually opens while ready.
+            if (gamepad1.b && !bWasPressed) gateRequested = !gateRequested;
+            bWasPressed = gamepad1.b;
+            if (!shooting) gateRequested = false; // shooter released: B must be pressed again
+
+            boolean gateOpen = gateRequested && ready;
+            gate.setPosition(gateOpen ? GATE_OPEN : GATE_CLOSED);
+            kickwheel.setPower(gamepad1.b && ready ? 1 : 0);
 
             // ---------- Telemetry (one update per loop) ----------
             telemetry.addData("Target RPM", targetRPM);
             telemetry.addData("Actual RPM", filteredRPM);
             telemetry.addData("Error", error);
             telemetry.addData("Motor Power", output);
-            telemetry.addData("At speed", gamepad1.right_bumper
-                    && Math.abs(error) < AT_SPEED_TOLERANCE);
+            telemetry.addData("Ready (at speed)", ready);
+            telemetry.addData("Gate requested", gateRequested);
             telemetry.addData("Gate open", gateOpen);
             telemetry.update();
         }
