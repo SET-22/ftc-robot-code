@@ -19,19 +19,19 @@ public class MyTeleOp extends LinearOpMode {
     private double mult = 0.9;
 
     // ---------- Mechanisms ----------
-    private DcMotor transfer;   // hold A
+    private DcMotor transfer;   // hold A, or runs with left bumper
     private DcMotor intake;     // hold X
-    private Servo gate;         // press B to request open; only opens when shooter is at speed
-    private DcMotor kickwheel;  // runs while B is held AND shooter is at speed
+    private Servo gate;         // active (closed) from init; hold left bumper to open (with kickwheel + transfer)
+    private DcMotor kickwheel;  // runs while left bumper is held
 
-    private static final double GATE_CLOSED = 0.0; // tune
-    private static final double GATE_OPEN = 0.5;   // tune
-    private boolean gateRequested = false;  // toggled by B
-    private boolean bWasPressed = false;
+    // GATE_CLOSED = in place (blocking), where it sits from init.
+    // GATE_OPEN = moved out of the way while left bumper is held. Swap/tune these to your mechanism.
+    private static final double GATE_CLOSED = 0.7; // tune
+    private static final double GATE_OPEN = 0.0;   // tune
 
     // ---------- Shooter: PIDF holds targetRPM while right bumper is held ----------
     private DcMotorEx shooter;
-    private double targetRPM = 3100.0;   // D-pad up/down changes it by 50
+    private double targetRPM = 4100.0;   // D-pad up/down changes it by 50
     private boolean dpadUpWas = false;
     private boolean dpadDownWas = false;
 
@@ -49,7 +49,7 @@ public class MyTeleOp extends LinearOpMode {
     private double kP = 0.0002;
     private double kI = 0.0002;
     private double kD = 0.00001;
-    private double kF = 1.0/ 7500.0;
+    private double kF = 1.0 / 7500.0;
 
     // Largest power the I term is allowed to add (anti-windup)
     private static final double MAX_I_POWER = 0.3;
@@ -59,7 +59,7 @@ public class MyTeleOp extends LinearOpMode {
     private double filteredRPM = 0.0;    // smoothed RPM reading
 
     // Ready when within 100 RPM of the target; stays ready until the error
-    // grows past 150 (prevents the gate from flickering).
+    // grows past 150 (prevents the kickwheel from flickering).
     private static final double AT_SPEED_TOLERANCE = 100.0;
     private static final double LOSE_SPEED_TOLERANCE = 150.0;
     private boolean ready = false;
@@ -93,12 +93,16 @@ public class MyTeleOp extends LinearOpMode {
         // If Actual RPM reads negative when it spins the right way:
         // shooter.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        gate.setPosition(GATE_OPEN);
+        // Gate is activated (closed) immediately at init, not left at 0.0
+        gate.setPosition(GATE_CLOSED);
 
         telemetry.addLine("start");
         telemetry.update();
 
         waitForStart(); // waits for PLAY
+
+        // Re-command the gate the moment the match starts
+        gate.setPosition(GATE_CLOSED);
 
         // Set the timer AFTER start so the first dt isn't huge
         long previousTime = System.nanoTime();
@@ -120,8 +124,7 @@ public class MyTeleOp extends LinearOpMode {
             bl.setPower(blPower * mult);
             br.setPower(brPower * mult);
 
-            // ---------- Intake / transfer ----------
-            transfer.setPower(gamepad1.a ? 1 : 0);
+            // ---------- Intake ----------
             intake.setPower(gamepad1.x ? 1 : 0);
 
             // ---------- Shooter: PIDF ----------
@@ -130,6 +133,8 @@ public class MyTeleOp extends LinearOpMode {
             if (gamepad1.dpad_down && !dpadDownWas) targetRPM = Math.max(0, targetRPM - 50);
             dpadUpWas = gamepad1.dpad_up;
             dpadDownWas = gamepad1.dpad_down;
+
+            boolean shooting = gamepad1.right_bumper;
 
             // ONE timestamp per loop
             long now = System.nanoTime();
@@ -140,7 +145,6 @@ public class MyTeleOp extends LinearOpMode {
             double rawRPM = shooter.getVelocity() / TICKS_PER_REV * 60.0;
             filteredRPM = 0.7 * filteredRPM + 0.3 * rawRPM;
 
-            boolean shooting = gamepad1.right_bumper;
             double error = targetRPM - filteredRPM;
             double output = 0;
 
@@ -188,15 +192,14 @@ public class MyTeleOp extends LinearOpMode {
                 ready = false;
             }
 
-            // ---------- Gate + kickwheel: only when the flywheel is ready ----------
-            // B toggles the request. The gate only actually opens while ready.
-            if (gamepad1.b && !bWasPressed) gateRequested = !gateRequested;
-            bWasPressed = gamepad1.b;
-            if (!shooting) gateRequested = false; // shooter released: B must be pressed again
-
-            boolean gateOpen = gateRequested && ready;
-            gate.setPosition(gateOpen ? GATE_OPEN : GATE_CLOSED);
-            kickwheel.setPower(gamepad1.b && ready ? 1 : 0);
+            // ---------- Gate + kickwheel (independent of the shooter) ----------
+            // Gate is always actively commanded: closed normally, open while left bumper is held.
+            // Left bumper fires everything at once: gate + kickwheel + transfer.
+            boolean feeding = gamepad1.left_bumper;
+            gate.setPosition(feeding ? GATE_OPEN : GATE_CLOSED);
+            kickwheel.setPower(feeding ? 1 : 0);
+            // Transfer also runs on A by itself (e.g. to adjust balls); LB runs it with the shot.
+            transfer.setPower((feeding || gamepad1.a) ? 1 : 0);
 
             // ---------- Telemetry (one update per loop) ----------
             telemetry.addData("Target RPM", targetRPM);
@@ -204,8 +207,9 @@ public class MyTeleOp extends LinearOpMode {
             telemetry.addData("Error", error);
             telemetry.addData("Motor Power", output);
             telemetry.addData("Ready (at speed)", ready);
-            telemetry.addData("Gate requested", gateRequested);
-            telemetry.addData("Gate open", gateOpen);
+            telemetry.addData("Shooting (RB)", shooting);
+            telemetry.addData("Feeding (LB)", feeding);
+            telemetry.addData("Gate pos", feeding ? GATE_OPEN : GATE_CLOSED);
             telemetry.update();
         }
     }
