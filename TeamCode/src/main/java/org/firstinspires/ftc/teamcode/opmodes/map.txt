@@ -18,5 +18,10 @@ bl = REVERSE
 fr = FORWARD
 br = FORWARD
 
-expan hub
+expansion hub (temp names)
 intake = 0
+transfer = 1
+shooter = 2
+kickwheel = 3
+
+gate = 0
