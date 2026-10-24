@@ -22,15 +22,8 @@ android {
     packagingOptions {
         jniLibs.useLegacyPackaging true
     }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
 }
 
 dependencies {
     implementation project(':FtcRobotController')
-    implementation 'com.pedropathing:revhub:3.0.0'
-    implementation 'com.pedropathing:tuning:1.0.0'
 }
