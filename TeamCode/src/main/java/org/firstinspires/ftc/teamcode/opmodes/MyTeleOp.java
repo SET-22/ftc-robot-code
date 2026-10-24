@@ -61,7 +61,7 @@ public class MyTeleOp extends LinearOpMode {
     // Intake always runs at INTAKE_POWER.
     // Transfer always runs: IDLE_POWER normally, FEED_POWER while the gate is open.
     private static final double INTAKE_POWER = 1.0; // intake, always on (tune)
-    private static final double IDLE_POWER = 0.15;  // transfer idle (tune)
+    private static final double IDLE_POWER = 0.2;  // transfer idle (tune)
     private static final double FEED_POWER = 1.0;   // transfer while feeding (tune)
 
     // ---------- Controls ----------

@@ -1,11 +1,3 @@
-
-Tristan Bot
-br = 0
-fl = 1
-fr = 2
-bl = 3
-
-
 Junior Bot
 ctrl hub
 bl = 0
@@ -25,3 +17,18 @@ shooter = 2
 kickwheel = 3
 
 gate = 0
+
+CONTROLS (gamepad1)
+
+Left stick ........ drive forward/back and strafe left/right
+Right stick X ..... turn left/right
+Right trigger ..... hold to feed: gate opens, transfer goes to 100%
+D-pad up .......... shooter target RPM +50 (per press)
+D-pad down ........ shooter target RPM -50 (per press)
+
+No button needed (runs automatically after PLAY)
+Shooter ........... holds target RPM (starts at 4100)
+Intake ............ always 100%
+Transfer .......... 20% idle, 100% while right trigger is held
+Kickwheel ......... always 50%
+Gate .............. closed until right trigger is held
