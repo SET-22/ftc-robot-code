@@ -1,8 +1,7 @@
 
-/*
 package org.firstinspires.ftc.teamcode.opmodes;
 
-import static com.pedropathing.api.Paths.*;   // lets us call line() directly
+import static com.pedropathing.api.Paths.*;
 
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
@@ -17,56 +16,40 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class ExampleAuto extends OpMode {
 
     private Follower follower;
-    private int state = 0;
 
-    // PoseFactory: p.of(x, y, heading in DEGREES), in Pedro coordinates.
-    // PLACEHOLDERS: set startPose to where the robot is actually placed, and replace the targets.
     private final PoseFactory p = PoseFactory.degrees();
 
+    // Example starting position (inches, degrees)
     private final Pose startPose = p.of(24, 24, 0);
-    private final Pose scorePose = p.of(48, 24, 0);
 
-    private Path driveToScore;
+    // Target is 24 inches forward along the X-axis
+    private final Pose targetPose = p.of(48, 24, 0);
+
+    private Path driveForward;
 
     @Override
     public void init() {
         follower = Constants.create(hardwareMap);
+
         follower.setPose(startPose);
-        driveToScore = line(startPose, scorePose).linear(startPose, scorePose);
+
+        driveForward = line(startPose, targetPose)
+                .linear(startPose, targetPose);
     }
 
     @Override
     public void start() {
-        state = 0;
+        // Start the path exactly once
+        follower.follow(driveForward);
     }
 
     @Override
     public void loop() {
-        follower.update();   // must run every loop
+        // Update Pedro Pathing every loop
+        follower.update();
 
-        switch (state) {
-            case 0:
-                follower.follow(driveToScore);
-                state = 1;
-                break;
-
-            case 1:
-                // Wait for the path to finish, then hold position
-                if (!follower.isBusy()) {
-                    follower.hold(scorePose);
-                    state = 2;
-                }
-                break;
-
-            case 2:
-                // Add your mechanism actions here (shooter, gate, kickwheel, transfer)
-                break;
-        }
-
-        telemetry.addData("State", state);
+        telemetry.addData("Busy", follower.isBusy());
         telemetry.addData("Pose", follower.pose());
         telemetry.update();
     }
 }
-*?
- */
