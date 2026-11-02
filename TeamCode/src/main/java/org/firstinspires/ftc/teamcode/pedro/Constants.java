@@ -45,8 +45,8 @@ public class Constants {
     });
 
     // ---------- Foresight (algorithm) ----------
-    // These are the example values from Pedro's docs, NOT values for your robot.
-    // Run the Foresight AutoTune (http://192.168.43.1:10158) and replace this block.
+    // Values from the Foresight AutoTune (http://192.168.43.1:10158).
+    // Re-run it if the drivetrain, weight, or wheels change.
     public static ForesightConfig foresightConfig = new ForesightConfig(c -> {
         Controller primaryTranslationalForward = Controller.proportional(0.3);
         Controller secondaryTranslationalForward = Controller.proportional(0.1);

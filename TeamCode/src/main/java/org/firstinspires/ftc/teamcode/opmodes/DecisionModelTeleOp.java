@@ -16,19 +16,10 @@ import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
+import org.firstinspires.ftc.teamcode.decision.CsvLogger;
+import org.firstinspires.ftc.teamcode.decision.PolicyLink;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketTimeoutException;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -91,7 +82,7 @@ import java.util.Locale;
  *        - Shooter (bang-bang + PIDF)   <- copied unchanged from MyTeleOp
  *        - Ready check / gate / intake / transfer
  *        - Logging + telemetry
- *   5. Helpers (math, CSV logger, laptop link thread)
+ *   5. Helpers (math). The CSV logger and laptop link live in teamcode/decision/.
  */
 @TeleOp(name = "Decision model teleop", group = "Practice")
 public class DecisionModelTeleOp extends LinearOpMode {
@@ -912,200 +903,5 @@ public class DecisionModelTeleOp extends LinearOpMode {
         if (target > current + step) return current + step;
         if (target < current - step) return current - step;
         return target;
-    }
-
-    // ---------------------------------------------------------------------
-    // CSV logger: one file per run in LOG_DIR. Decimals always use dots.
-    // Copy the files to the laptop with:  adb pull /sdcard/FIRST/decision_logs logs
-    // ---------------------------------------------------------------------
-    private static class CsvLogger {
-        private static final String HEADER = "t_ms,loop_ms,episode,event,mode,source,state,state_name,"
-                + "x,y,heading,vx,vy,omega,"
-                + "balls,have_target,tx,ty,area,conf,"
-                + "shoot_fwd_err,shoot_left_err,shoot_head_err,has_spot,"
-                + "target_rpm,rpm,ready,feeding,firing,intake_amps,stopped,"
-                + "act_fwd,act_strafe,act_turn,act_fire,teacher_active,"
-                + "model_ok,model_fwd,model_strafe,model_turn,model_fire,"
-                + "cmd_fwd,cmd_strafe,cmd_turn,obs_seq";
-
-        private final String dir;
-        private File file;
-        private BufferedWriter out;
-        private int rows = 0;
-
-        CsvLogger(String dir) { this.dir = dir; }
-
-        boolean open() {
-            try {
-                File folder = new File(dir);
-                if (!folder.exists() && !folder.mkdirs()) return false;
-                String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-                file = new File(folder, "run_" + stamp + ".csv");
-                out = new BufferedWriter(new FileWriter(file));
-                out.write(HEADER);
-                out.newLine();
-                return true;
-            } catch (IOException e) {
-                out = null;
-                return false;
-            }
-        }
-
-        String path() { return file == null ? "" : file.getAbsolutePath(); }
-
-        void row(Object[] values) {
-            if (out == null) return;
-            StringBuilder sb = new StringBuilder(400);
-            for (int i = 0; i < values.length; i++) {
-                if (i > 0) sb.append(',');
-                Object v = values[i];
-                if (v instanceof Double) sb.append(String.format(Locale.US, "%.4f", (Double) v));
-                else sb.append(v);
-            }
-            try {
-                out.write(sb.toString());
-                out.newLine();
-                if (++rows % 30 == 0) out.flush(); // about once a second
-            } catch (IOException e) {
-                out = null; // stop logging rather than crash the OpMode
-            }
-        }
-
-        void close() {
-            if (out == null) return;
-            try { out.close(); } catch (IOException ignored) { }
-            out = null;
-        }
-    }
-
-    // ---------------------------------------------------------------------
-    // Laptop link: a background thread with one UDP socket.
-    //   Laptop -> Hub:  "H"  (hello, so the Hub learns the laptop's address)
-    //                   "A,seq,fwd,strafe,turn,fire"  (seq = the observation it answers)
-    //   Hub -> laptop:  "O,seq,t_ms,have_target,tx,ty,area,conf,
-    //                    shoot_fwd_err,shoot_left_err,shoot_head_err,vx,vy,balls,state"
-    // The OpMode only reads the latest accepted action; old or out-of-order ones are dropped.
-    // ---------------------------------------------------------------------
-    private static class PolicyLink implements Runnable {
-
-        static class Action {
-            final long seq;
-            final double fwd, strafe, turn;
-            final boolean fire;
-            final double receivedMs;
-
-            Action(long seq, double fwd, double strafe, double turn, boolean fire, double receivedMs) {
-                this.seq = seq; this.fwd = fwd; this.strafe = strafe; this.turn = turn;
-                this.fire = fire; this.receivedMs = receivedMs;
-            }
-        }
-
-        private final int port;
-        private DatagramSocket socket;
-        private Thread thread;
-        private volatile boolean running = false;
-        private volatile InetSocketAddress laptop = null;
-        private volatile String pendingObs = null;
-        private volatile long lastObsSeq = 0;
-        private volatile double lastPacketMs = -1e9;
-        private Action latest = null;          // guarded by "this"
-        private long rejected = 0;
-
-        PolicyLink(int port) { this.port = port; }
-
-        boolean start() {
-            try {
-                socket = new DatagramSocket(port);
-                socket.setSoTimeout(5);
-            } catch (IOException e) {
-                return false;
-            }
-            running = true;
-            thread = new Thread(this, "PolicyLink");
-            thread.setDaemon(true);
-            thread.start();
-            return true;
-        }
-
-        void stop() {
-            running = false;
-            if (socket != null) socket.close();
-        }
-
-        /** Called by the OpMode; the thread sends it (no networking on the loop thread). */
-        void sendObservation(String obs, long seq) {
-            lastObsSeq = seq;
-            pendingObs = obs;
-        }
-
-        /** Latest action if it is fresh and answers a recent observation, else null. */
-        synchronized Action latestAction(double nowMs, double timeoutMs, long minSeq) {
-            if (latest == null) return null;
-            if (nowMs - latest.receivedMs > timeoutMs) return null;
-            if (latest.seq < minSeq) return null;
-            return latest;
-        }
-
-        String describe(double nowMs) {
-            if (socket == null) return "port not open";
-            if (laptop == null) return "waiting for laptop";
-            double age = nowMs - lastPacketMs;
-            return String.format(Locale.US, "%s (last %.0f ms ago, dropped %d)",
-                    age < 500 ? "connected" : "QUIET", age, rejected);
-        }
-
-        @Override
-        public void run() {
-            byte[] buf = new byte[256];
-            while (running) {
-                // ---- Receive (5 ms timeout so sending stays responsive) ----
-                try {
-                    DatagramPacket p = new DatagramPacket(buf, buf.length);
-                    socket.receive(p);
-                    handle(new String(p.getData(), 0, p.getLength(), StandardCharsets.US_ASCII).trim(),
-                            (InetSocketAddress) p.getSocketAddress());
-                } catch (SocketTimeoutException ignored) {
-                    // nothing arrived
-                } catch (IOException e) {
-                    if (!running) break;
-                }
-
-                // ---- Send the newest observation, if any ----
-                String obs = pendingObs;
-                InetSocketAddress to = laptop;
-                if (obs != null && to != null) {
-                    pendingObs = null;
-                    try {
-                        byte[] data = obs.getBytes(StandardCharsets.US_ASCII);
-                        socket.send(new DatagramPacket(data, data.length, to));
-                    } catch (IOException ignored) {
-                        // drop it; the next one comes in 33 ms
-                    }
-                }
-            }
-        }
-
-        private void handle(String msg, InetSocketAddress from) {
-            laptop = from;
-            lastPacketMs = System.nanoTime() / 1e6;
-            if (!msg.startsWith("A,")) return; // hello or unknown
-            String[] f = msg.split(",");
-            if (f.length < 6) { rejected++; return; }
-            try {
-                long seq = Long.parseLong(f[1]);
-                double fwd = Double.parseDouble(f[2]);
-                double strafe = Double.parseDouble(f[3]);
-                double turn = Double.parseDouble(f[4]);
-                boolean fire = Integer.parseInt(f[5].trim()) != 0;
-                if (Double.isNaN(fwd) || Double.isNaN(strafe) || Double.isNaN(turn)) { rejected++; return; }
-                synchronized (this) {
-                    // Out of order, or answering an observation we never sent
-                    if ((latest != null && seq <= latest.seq) || seq > lastObsSeq) { rejected++; return; }
-                    latest = new Action(seq, fwd, strafe, turn, fire, lastPacketMs);
-                }
-            } catch (NumberFormatException e) {
-                rejected++;
-            }
-        }
     }
 }

@@ -5,10 +5,11 @@ fr = 1
 br = 2
 fl = 3
 
-fl = REVERSE
-bl = REVERSE
-fr = FORWARD
-br = FORWARD
+fl = FORWARD
+bl = FORWARD
+fr = REVERSE
+br = REVERSE
+(matches MyTeleOp and pedro/Constants, which are correct)
 
 expansion hub (temp names)
 intake = 0
