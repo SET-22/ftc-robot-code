@@ -1,0 +1,27 @@
+Category,Item,Qty,Used for,Spec / example part,Approx USD (each),Notes
+Actuators,MG90S metal-gear micro servo,14,"4 eye (2 per eye, differential pan/tilt), 4 eyelids, 4 eyebrows, 2 mouth corners","4.8-6 V, ~2.2 kg*cm, 22.8x12.2x28.5 mm",3.50,Buy 2x 10-packs (spares). Avoid SG90 (plastic gears strip on lids/brows)
+Actuators,MG996R high-torque servo,1,Jaw,"4.8-7.2 V, ~11 kg*cm, 40.7x19.7x42.9 mm",9.00,Upgrade to DS3218 (20 kg) once silicone skin is added - same footprint class
+Electronics,PCA9685 16-channel 12-bit PWM servo driver,1,Drives all 15 servos over I2C (ch 15 spare),Adafruit #815 or clone,6.00,Add a second board (address 0x41) later for the neck
+Electronics,Raspberry Pi 5 (8 GB),1,"Brain: vision, speech, LLM client, servo control",,80.00,Pi 4 also works; 8 GB recommended for local speech models
+Electronics,Raspberry Pi 5 Active Cooler,1,Pi cooling,,5.00,
+Electronics,Raspberry Pi 27 W USB-C power supply,1,Pi power,,12.00,
+Electronics,microSD card 64 GB (A2),1,Pi OS,,10.00,
+Electronics,Raspberry Pi Camera Module 3 (Wide),1,Face/person tracking - sits in the nose bridge,,35.00,Needs Pi 5 camera cable (22-to-15 pin 200-300 mm)
+Electronics,Pi 5 camera FFC cable 22-to-15 pin 300 mm,1,Camera to Pi,,3.00,
+Electronics,5 V 10 A regulated power supply,1,Servo power (PCA9685 V+ terminal),Mean Well LRS-50-5 or similar,15.00,NEVER power servos from the Pi 5 V pin. 6 V supply OK for MG90S/MG996R
+Electronics,1000 uF 16 V electrolytic capacitor,1,Across PCA9685 V+ / GND,,0.50,Smooths servo current spikes
+Electronics,Servo extension cables 30 cm,10,Eye/brow/lid servos to driver board,JR/Futaba 3-pin,0.40,
+Electronics,Female-female jumper wires,1 pack,I2C Pi <-> PCA9685,,3.00,SDA=GPIO2 SCL=GPIO3 3V3 GND
+Electronics,USB microphone (or ReSpeaker XVF3800 USB mic array),1,Voice input,,10-60,Array gives far-field + direction of arrival (look toward speaker)
+Electronics,MAX98357A I2S amplifier breakout,1,Voice output,,6.00,
+Electronics,40 mm 3 W 4-8 ohm speaker,1,Voice output - mount in the jaw/mouth cavity,,3.00,
+Hardware,M2 ball link + M2 threaded rod pushrod kit,1 kit,8 push rods (16 ball links + 16 ball studs),RC car/plane M2 ball-link kit,10.00,Rods cut to length on assembly (approx 40-75 mm)
+Hardware,2 mm steel rod (silver steel / piano wire) 300 mm,1,"Pivot pins: 2x eye tilt (25 mm), 4x eyelid (8 mm)",,3.00,Ream printed holes with a 2 mm drill
+Hardware,M2 self-tapping screw assortment (6/8/10 mm),1 kit,"Servo mounts, U-joint pan stubs, camera, ball studs",,6.00,
+Hardware,M3 socket screw + nut assortment (8-30 mm),1 kit,"Frame assembly, jaw hinge pin (M3x30)",,8.00,
+Hardware,M3 brass heat-set inserts,25,Face plate / base plate / brackets,,0.10,Optional but recommended
+Hardware,12 mm glass dome cabochon,2,Iris lens over printed/paper iris (eye recess is 12.2 mm),,0.50,Gives a realistic wet-eye look
+Materials,PLA+ or PETG filament,1 kg,All structural printed parts (~200 cm3 / ~250 g solid),,20.00,PETG for levers and lids (tougher)
+Materials,TPU 95A filament,small,Eyebrow strips (flex so inner/outer move independently),,25.00 (spool),
+Later - skin,Platinum silicone (Smooth-On Ecoflex 00-30 or Dragon Skin 10),1 trial kit,Face skin cast in a printed mould,,35.00,Phase 2
+Later - skin,Neodymium magnets 5x2 mm,20,Skin anchor points (snap skin onto lever posts),,0.15,Phase 2 (InMoov-style magnet/Velcro attachment)
