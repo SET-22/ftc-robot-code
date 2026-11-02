@@ -62,12 +62,13 @@ import java.util.Locale;
  *   X ................. drive to the shooting spot and fire once
  *   Y ................. toggle AI mode (laptop drives)
  *   B ................. CANCEL back to manual (moving any stick also cancels)
- *
- * CONTROLS (gamepad2)
- *   D-pad up .......... save the current position as the shooting spot
+ *   Left bumper ....... save the current position as the shooting spot
  *   D-pad right/left .. ball count +1 / -1 (fix a miscount)
- *   A ................. ball count = 0
+ *   Right bumper ...... ball count = 0
  *   Back .............. reset odometry to (0, 0, 0) — robot must be on the start mark
+ *
+ * CONTROLS (gamepad2) — optional backup, same jobs as above
+ *   D-pad up = save spot, D-pad right/left = balls +1/-1, A = balls 0, Back = reset odometry
  *
  * SAFETY
  *   - The laptop only sends fwd/strafe/turn/fire. It never sets motor powers.
@@ -159,7 +160,7 @@ public class DecisionModelTeleOp extends LinearOpMode {
     private static final double SETTLE_SLACK = 2.0;    // leave SETTLE if error grows past tol * this
 
     // ---------- Shooting spot ----------
-    // Save it live with gamepad2 D-pad up, or type it here and set SHOOT_SPOT_DEFAULT_SET.
+    // Save it live with gamepad1 left bumper, or type it here and set SHOOT_SPOT_DEFAULT_SET.
     // Coordinates are relative to where the robot was at INIT (start on the same mark!).
     private static final boolean SHOOT_SPOT_DEFAULT_SET = false;
     private static final double SHOOT_X_DEFAULT = 0.0;       // inches
@@ -259,7 +260,7 @@ public class DecisionModelTeleOp extends LinearOpMode {
 
     // ---------- Button press detection ----------
     private boolean aWas, xWas, yWas;
-    private boolean g2UpWas, g2LeftWas, g2RightWas, g2AWas, g2BackWas;
+    private boolean saveSpotWas, ballsDownWas, ballsUpWas, ballsZeroWas, resetPoseWas;
 
     // ---------- Odometry ----------
     private double poseX, poseY, poseH;           // inches, inches, radians (CCW+)
@@ -420,13 +421,13 @@ public class DecisionModelTeleOp extends LinearOpMode {
                 if (limelight == null) {
                     message = "A needs the Limelight (not found). Use X.";
                 } else if (!hasShootSpot) {
-                    message = "No shooting spot: gamepad2 D-pad up to save one";
+                    message = "No shooting spot: gamepad1 left bumper to save one";
                 } else {
                     startAuto(Mode.RULES, true, State.SEARCH);
                 }
             } else if (x && !xWas) {
                 if (!hasShootSpot) {
-                    message = "No shooting spot: gamepad2 D-pad up to save one";
+                    message = "No shooting spot: gamepad1 left bumper to save one";
                 } else {
                     startAuto(Mode.RULES, false, State.GO_TO_SHOOT);
                 }
@@ -439,22 +440,28 @@ public class DecisionModelTeleOp extends LinearOpMode {
             }
             aWas = a; xWas = x; yWas = y;
 
-            // ---- gamepad2: shooting spot, ball count, odometry reset ----
-            if (gamepad2.dpad_up && !g2UpWas) {
+            // ---- Shooting spot, ball count, odometry reset (gamepad1, or gamepad2 as backup) ----
+            boolean saveSpot = gamepad1.left_bumper || gamepad2.dpad_up;
+            boolean ballsUp = gamepad1.dpad_right || gamepad2.dpad_right;
+            boolean ballsDown = gamepad1.dpad_left || gamepad2.dpad_left;
+            boolean ballsZero = gamepad1.right_bumper || gamepad2.a;
+            boolean resetPose = gamepad1.back || gamepad2.back;
+
+            if (saveSpot && !saveSpotWas) {
                 shootX = poseX; shootY = poseY; shootH = poseH;
                 hasShootSpot = true;
                 message = String.format(Locale.US, "Shooting spot saved: %.1f, %.1f, %.0f deg",
                         shootX, shootY, Math.toDegrees(shootH));
             }
-            if (gamepad2.dpad_right && !g2RightWas) balls = Math.min(BALLS_FULL, balls + 1);
-            if (gamepad2.dpad_left && !g2LeftWas) balls = Math.max(0, balls - 1);
-            if (gamepad2.a && !g2AWas) balls = 0;
-            if (gamepad2.back && !g2BackWas) {
+            if (ballsUp && !ballsUpWas) balls = Math.min(BALLS_FULL, balls + 1);
+            if (ballsDown && !ballsDownWas) balls = Math.max(0, balls - 1);
+            if (ballsZero && !ballsZeroWas) balls = 0;
+            if (resetPose && !resetPoseWas) {
                 odometry.setPose(Pose.zero());
                 message = "Odometry reset to (0, 0, 0)";
             }
-            g2UpWas = gamepad2.dpad_up; g2RightWas = gamepad2.dpad_right;
-            g2LeftWas = gamepad2.dpad_left; g2AWas = gamepad2.a; g2BackWas = gamepad2.back;
+            saveSpotWas = saveSpot; ballsUpWas = ballsUp; ballsDownWas = ballsDown;
+            ballsZeroWas = ballsZero; resetPoseWas = resetPose;
 
             // =============================================================
             // ODOMETRY + VELOCITY
@@ -690,7 +697,7 @@ public class DecisionModelTeleOp extends LinearOpMode {
             telemetry.addData("Shooting spot", hasShootSpot
                     ? String.format(Locale.US, "fwd %.1f  left %.1f  head %.0f deg",
                     fwdErr, leftErr, Math.toDegrees(headErr))
-                    : "not saved (gamepad2 D-pad up)");
+                    : "not saved (gamepad1 left bumper)");
             telemetry.addData("Stopped", stopped);
             telemetry.addData("Pollen", limelight == null ? "no Limelight"
                     : haveTarget ? String.format(Locale.US, "tx %.1f  ty %.1f  area %.2f", tx, ty, area)

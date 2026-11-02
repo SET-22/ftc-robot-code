@@ -28,7 +28,7 @@ NOT verified (needs the robot): everything in task A's checklist, the signs (`HE
 
 ### How to run
 ```
-# Robot: "Decision model teleop". gamepad2 D-pad up at the shooting spot, then:
+# Robot: "Decision model teleop". gamepad1 left bumper at the shooting spot, then:
 #   gamepad1 X = drive there + fire once, A = full cycle (needs Limelight), Y = AI mode, B/stick = cancel
 adb pull /sdcard/FIRST/decision_logs laptop/logs
 cd laptop
