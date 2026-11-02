@@ -79,3 +79,5 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+# JavaScript tooling (not part of the robot build)
+node_modules/
