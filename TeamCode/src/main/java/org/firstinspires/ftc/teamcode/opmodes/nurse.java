@@ -42,8 +42,8 @@ public class nurse extends LinearOpMode {
 
     // ---------- Test settings ----------
     private static final double DRIVE_TEST_POWER = 0.2;
-    private static final double GATE_CLOSED = 0.0; // same as teleop, tune
-    private static final double GATE_OPEN = 0.5;   // same as teleop, tune
+    private static final double GATE_CLOSED = 0.7; // same as MyTeleOp
+    private static final double GATE_OPEN = 0.0;   // same as MyTeleOp
     private static final double TICKS_PER_REV = 28.0;
 
     private double shooterPower = 0.5;

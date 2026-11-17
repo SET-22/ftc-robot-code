@@ -20,7 +20,7 @@ import com.qualcomm.robotcore.hardware.Servo;
  * ALWAYS RUNNING (after PLAY)
  *   Shooter ........... PIDF holds targetRPM (bang-bang gets it close first)
  *   Intake ............ INTAKE_POWER (100%)
- *   Transfer .......... IDLE_POWER (15%), or FEED_POWER (100%) while feeding
+ *   Transfer .......... IDLE_POWER (20%), or FEED_POWER (100%) while feeding
  *   Kickwheel ......... constant 50% (see the kickwheel line in the loop)
  *
  * FILE LAYOUT
@@ -114,7 +114,7 @@ public class MyTeleOp extends LinearOpMode {
     private DcMotor bl;
 
     // ---------- Mechanisms ----------
-    private DcMotor transfer;   // 15% idle, 100% while the gate is open
+    private DcMotor transfer;   // 20% idle, 100% while the gate is open
     private DcMotor intake;     // always 100%
     private Servo gate;         // closed from init; opens while the right trigger is held
     private DcMotor kickwheel;  // currently runs constantly at 50%
@@ -343,7 +343,7 @@ public class MyTeleOp extends LinearOpMode {
             // =============================================================
             // INTAKE + TRANSFER
             // =============================================================
-            // Intake: always 100%. Transfer: 15% idle, 100% while the gate is open.
+            // Intake: always 100%. Transfer: 20% idle, 100% while the gate is open.
             double transferPower = feeding ? FEED_POWER : IDLE_POWER;
             intake.setPower(INTAKE_POWER);
             transfer.setPower(transferPower);
